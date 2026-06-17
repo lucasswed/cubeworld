@@ -1,0 +1,17 @@
+# Build output
+build-win/
+build/
+build-linux/
+
+# Windows executable / logs produced at runtime
+*.exe
+*.log
+
+# Object files and static libs
+*.obj
+*.o
+*.a
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
