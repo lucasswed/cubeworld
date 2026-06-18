@@ -14,6 +14,7 @@ struct Vertex {
     float x, y, z;
     float u, v;
     float light;
+    float wave;  // 1.0 on water-top vertices (drives wave animation), else 0
 };
 
 class Chunk {
@@ -31,7 +32,8 @@ public:
     void buildMesh(const class World &world);
 
     // Draw the already-built mesh (no shader binding — caller does that).
-    void draw() const;
+    void draw()            const;
+    void drawTransparent() const;
 
     bool needsRebuild = true;
 
@@ -40,10 +42,12 @@ private:
 
     GLuint m_vao = 0, m_vbo = 0, m_ebo = 0;
     int    m_indexCount = 0;
+    GLuint m_transVao = 0, m_transVbo = 0, m_transEbo = 0;
+    int    m_transIndexCount = 0;
 
-    void uploadMesh(const std::vector<Vertex> &verts,
-                    const std::vector<uint32_t> &idx);
+    void uploadTo(GLuint &vao, GLuint &vbo, GLuint &ebo, int &count,
+                  const std::vector<Vertex> &verts, const std::vector<uint32_t> &idx);
     void addFace(std::vector<Vertex> &verts,
                  std::vector<uint32_t> &idx,
-                 int x, int y, int z, int face, int texCol);
+                 int x, int y, int z, int face, int texCol, float wave = 0.f);
 };

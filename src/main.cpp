@@ -357,14 +357,14 @@ static GLuint buildTextureAtlas(FILE *logFile = nullptr) {
         if (logFile) { fputs(m, logFile); fputc('\n', logFile); fflush(logFile); }
     };
 
-    constexpr int NCOLS = 11;
+    constexpr int NCOLS = 12;
 
     // Each entry maps an image file to atlas slots, one slot per face column.
     // Image width / image height = number of face columns in that image.
     // If image has fewer columns than numSlots, the last column repeats.
     // Atlas layout: 0=grass_top 1=grass_side 2=dirt 3=stone
     //               4=wood_top  5=wood_side  6=leaves
-    //               7=pickaxe   8=shovel     9=axe   10=sword
+    //               7=pickaxe   8=shovel     9=axe   10=sword  11=water
     struct BlockEntry { const char *file; int slots[3]; int numSlots; };
     static const BlockEntry kBlocks[] = {
         {"grass",   {0, 1, 2}, 3}, // col0=top(0), col1=side(1), col2=bottom(2)
@@ -376,8 +376,9 @@ static GLuint buildTextureAtlas(FILE *logFile = nullptr) {
         {"shovel",  {8},        1},
         {"axe",     {9},        1},
         {"sword",   {10},       1},
+        {"water",   {11},       1},
     };
-    static constexpr int kNumBlocks = 9;
+    static constexpr int kNumBlocks = 10;
     static const char *kExts[] = {".png", ".jpg", ".jpeg", ".bmp", nullptr};
 
     stbi_set_flip_vertically_on_load(1);
@@ -552,6 +553,14 @@ static GLuint buildTextureAtlas(FILE *logFile = nullptr) {
             rc(4,7,10,8,kI); ln(4,7,10,7,kId);
             rc(7,2,7,6,kW); rc(8,2,8,6,kWd);
             rc(6,0,9,1,kId); spx(7,0,kI); spx(8,0,kI);
+        });
+        gen(11, [&]{  // water: animated blue, semi-transparent
+            for(int y=0;y<B;y++) for(int x=0;x<B;x++) {
+                int n=Nh(x,y,80), nr=Nh(x,y,81);
+                // Subtle ripple pattern
+                int ripple = (((x*3+y*5)%7) < 2) ? 12 : 0;
+                spx(x,y,{c8(18+n/2),c8(80+n+ripple),c8(210+n/3),c8(185+nr/4)});
+            }
         });
     }
 
@@ -887,8 +896,21 @@ int main() {
             }
         }
 
-        // ── Gravity ───────────────────────────────────────────────────────
-        g_velY -= GRAVITY * dt;
+        // ── Water detection ───────────────────────────────────────────────
+        bool inWater = (world.getBlock(
+            (int)std::floor(g_cam.position.x),
+            (int)std::floor(g_cam.position.y - 0.8f),
+            (int)std::floor(g_cam.position.z)) == BlockType::Water);
+
+        // ── Gravity / buoyancy ────────────────────────────────────────────
+        if (inWater) {
+            g_velY -= GRAVITY * 0.12f * dt;   // heavily reduced (buoyancy)
+            g_velY *= std::max(0.f, 1.f - 6.f * dt); // strong drag
+            if (glfwGetKey(win, GLFW_KEY_SPACE) == GLFW_PRESS)
+                g_velY = std::min(g_velY + 10.f * dt, 4.f); // swim up
+        } else {
+            g_velY -= GRAVITY * dt;
+        }
         g_cam.position.y += g_velY * dt;
 
         // ── Vertical collision (ground + ceiling) ─────────────────────────
@@ -921,7 +943,7 @@ int main() {
                 g_cam.position.y = groundF;
                 g_velY = 0.f;
                 g_onGround = true;
-                if (landVel < -20.f) {
+                if (!inWater && landVel < -20.f) {
                     int dmg = (int)((-landVel - 20.f) / 3.f) + 1;
                     g_health -= dmg;
                     if (g_health < 0) g_health = 0;
@@ -1079,16 +1101,26 @@ int main() {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, atlas);
         shader.setInt("uTexture", 0);
+        shader.setFloat("uTime", now);
 
         float aspect = fbH > 0 ? (float)fbW / (float)fbH : 1.f;
         shader.setMat4("uView",       g_cam.viewMatrix());
         shader.setMat4("uProjection", g_cam.projectionMatrix(aspect));
 
-        // Disable face culling so transparent blocks (leaves, future glass/water)
-        // render correctly from both sides without a separate two-pass setup.
+        // Opaque pass — leaves need both-sided rendering, no culling
         glDisable(GL_CULL_FACE);
         world.draw();
         glEnable(GL_CULL_FACE);
+
+        // Transparent pass (water) — blended, depth read-only so far geometry shows through
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+        glDisable(GL_CULL_FACE);
+        world.drawTransparent();
+        glEnable(GL_CULL_FACE);
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
 
         // ── Block highlight ────────────────────────────────────────────────
         if (target.hit) {

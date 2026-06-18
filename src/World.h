@@ -26,7 +26,8 @@ public:
 
     // Rebuild at most maxPerFrame dirty chunks, then draw all loaded chunks
     void update(int maxPerFrame = 4);
-    void draw()  const;
+    void draw()            const;
+    void drawTransparent() const;
 
     // Cast a ray from origin in dir, max distance. Returns hit info.
     RaycastResult raycast(const glm::vec3 &origin, const glm::vec3 &dir, float maxDist = 8.f) const;

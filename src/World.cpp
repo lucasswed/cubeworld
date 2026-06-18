@@ -168,6 +168,17 @@ void World::generateChunk(Chunk &c) {
         }
     }
 
+    // Fill ocean basins with water up to sea level
+    for (int x = 0; x < CHUNK_W; x++)
+    for (int z = 0; z < CHUNK_D; z++) {
+        int wx = baseX + x, wz = baseZ + z;
+        int h  = terrainHeight(wx, wz);
+        if (h >= SEA_LEVEL) continue;
+        for (int y = h + 1; y <= SEA_LEVEL; y++)
+            if (c.getBlock(x, y, z) == BlockType::Air)
+                c.setBlock(x, y, z, BlockType::Water);
+    }
+
     // Trees — only on grass columns above sea level
     uint32_t rng = chunkRng(c.chunkX, c.chunkZ);
     int numTrees = rngNext(rng) % 4;
@@ -237,6 +248,11 @@ void World::update(int maxPerFrame) {
 void World::draw() const {
     for (auto &[key, chunk] : m_chunks)
         chunk->draw();
+}
+
+void World::drawTransparent() const {
+    for (auto &[key, chunk] : m_chunks)
+        chunk->drawTransparent();
 }
 
 // DDA voxel raycast

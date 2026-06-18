@@ -12,6 +12,7 @@ pickaxe.png — 16×16
 shovel.png  — 16×16
 axe.png     — 16×16
 sword.png   — 16×16
+water.png   — 16×16 (semi-transparent blue)
 """
 
 import os, random
@@ -239,6 +240,26 @@ def make_leaves():
     img.save(os.path.join(OUT, "leaves.png"))
     print("leaves.png")
 
+# ── water.png  (16×16, semi-transparent blue) ────────────────────────────────
+
+def make_water():
+    import math
+    img = new()
+    px  = img.load()
+    for y in range(T):
+        for x in range(T):
+            n  = noise(x, y, 80, 10)
+            nr = noise(x, y, 81,  6)
+            # Subtle ripple lines via diagonal pattern
+            ripple = 12 if ((x * 3 + y * 5) % 7) < 2 else 0
+            r = clamp(18  + n // 2)
+            g = clamp(80  + n + ripple)
+            b = clamp(210 + n // 3)
+            a = clamp(185 + nr // 4, 160, 210)
+            px[x, y] = (r, g, b, a)
+    img.save(os.path.join(OUT, "water.png"))
+    print("water.png")
+
 # ── Tool palette ──────────────────────────────────────────────────────────────
 WD  = (162, 107, 47, 255)   # wood
 WDK = (110,  68, 22, 255)   # wood dark
@@ -352,6 +373,7 @@ if __name__ == "__main__":
     make_stone()
     make_wood()
     make_leaves()
+    make_water()
     make_pickaxe()
     make_shovel()
     make_axe()
