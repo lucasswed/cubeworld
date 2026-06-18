@@ -799,14 +799,10 @@ int main() {
     GLuint atlas = buildTextureAtlas(g_log);
     LOG("Atlas OK");
 
-    // World — spawn camera above the terrain surface (above sea level if needed)
+    // World — find nearest land column above sea level for spawn
     World world;
-    {
-        world.loadAround(0, 0, 0);                       // generate spawn chunk first
-        int surf = world.surfaceAt(8, 8);
-        surf = std::max(surf, WORLD_SEA_LEVEL);          // never spawn underwater
-        g_cam.position = {8.f, (float)surf + 2.7f, 8.f};
-    }
+    glm::vec3 spawnPos = world.findLandSpawn();
+    g_cam.position = spawnPos;
 
     // Drain any pending window messages before entering the render loop.
     glfwPollEvents();
@@ -972,8 +968,7 @@ int main() {
         // ── Health: respawn on death, slow regen while grounded ───────────────
         if (g_health <= 0) {
             g_health = 10;
-            int rsurf = std::max(world.surfaceAt(8, 8), WORLD_SEA_LEVEL);
-            g_cam.position = {8.f, (float)rsurf + 2.7f, 8.f};
+            g_cam.position = spawnPos;
             g_velY = 0.f;
         } else if (g_onGround && g_health < 10) {
             g_regenTimer += dt;

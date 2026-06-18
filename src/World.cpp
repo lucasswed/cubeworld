@@ -201,6 +201,27 @@ int World::surfaceAt(int wx, int wz) {
     return 0;
 }
 
+glm::vec3 World::findLandSpawn(int searchRadius) {
+    // Use terrain noise directly — no chunk needed — to find the nearest land column.
+    for (int r = 0; r <= searchRadius; r++) {
+        for (int dx = -r; dx <= r; dx++)
+        for (int dz = -r; dz <= r; dz++) {
+            if (std::abs(dx) != r && std::abs(dz) != r) continue; // ring only
+            int wx = 8 + dx * 4, wz = 8 + dz * 4;
+            if (terrainHeight(wx, wz) > SEA_LEVEL) {
+                // Generate the chunk so surfaceAt can read block data
+                int cx = (int)std::floor((float)wx / CHUNK_W);
+                int cz = (int)std::floor((float)wz / CHUNK_D);
+                getOrCreate(cx, cz);
+                int surf = surfaceAt(wx, wz);
+                return {(float)wx + 0.5f, (float)surf + 2.7f, (float)wz + 0.5f};
+            }
+        }
+    }
+    // Every column in range is ocean — spawn floating above sea level
+    return {8.f, (float)(SEA_LEVEL + 5), 8.f};
+}
+
 BlockType World::getBlock(int x, int y, int z) const {
     if (y < 0 || y >= CHUNK_H) return BlockType::Air;
     int cx = (int)std::floor((float)x / CHUNK_W);

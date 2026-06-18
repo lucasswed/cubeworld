@@ -40,6 +40,11 @@ public:
     // Y of the highest solid block at world column (wx, wz). Triggers chunk generation.
     int surfaceAt(int wx, int wz);
 
+    // Scan outward from (8,8) in 4-block steps to find the first land column
+    // above sea level using terrain noise only (no chunk generation needed).
+    // Returns a safe above-ground spawn position.
+    glm::vec3 findLandSpawn(int searchRadius = 64);
+
 private:
     std::unordered_map<int64_t, std::unique_ptr<Chunk>> m_chunks;
 
