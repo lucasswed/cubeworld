@@ -842,8 +842,10 @@ int main() {
                         * (sprinting ? 1.6f : sneaking ? 0.3f : 1.0f);
 
         // Returns true if at least one block column under pos is solid at foot level.
+        // The -0.1f bias ensures we land on the block below feet rather than the
+        // air cell at feet height (pos.y - 1.7f can be exactly groundY + epsilon).
         auto hasSolidGround = [&](glm::vec3 pos) -> bool {
-            int gy = (int)std::floor(pos.y - 1.7f);
+            int gy = (int)std::floor(pos.y - 1.7f - 0.1f);
             constexpr float GHW = 0.29f;
             int gx0 = (int)std::floor(pos.x - GHW), gx1 = (int)std::floor(pos.x + GHW);
             int gz0 = (int)std::floor(pos.z - GHW), gz1 = (int)std::floor(pos.z + GHW);
