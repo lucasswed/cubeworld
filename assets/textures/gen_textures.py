@@ -6,6 +6,8 @@ Output: assets/textures/*.png  (16×16 per tile, multi-column for multi-face blo
 grass.png   — 32×16: [top | side]  (bottom reuses dirt.png automatically)
 dirt.png    — 16×16
 stone.png   — 16×16
+wood.png    — 32×16: [top rings | side bark]
+leaves.png  — 16×16 (cutout transparency)
 pickaxe.png — 16×16
 shovel.png  — 16×16
 axe.png     — 16×16
@@ -159,6 +161,84 @@ def make_stone():
     img.save(os.path.join(OUT, "stone.png"))
     print("stone.png")
 
+# ── wood.png  (32×16: col0=top rings, col1=side bark) ────────────────────────
+
+def make_wood():
+    import math
+    img = new(2)
+    px = img.load()
+
+    # col 0 — top: annual ring pattern
+    for y in range(T):
+        for x in range(T):
+            n = noise(x, y, 40, 8)
+            cx, cy = x - 7.5, y - 7.5
+            r = math.sqrt(cx*cx + cy*cy)
+            ring = int(r + n * 0.15) % 2
+            # sapwood (outer) lighter, heartwood (inner) darker
+            if r < 2.5:
+                base = 95 + n // 2   # dark heartwood
+            elif ring == 0:
+                base = 130 + n // 2  # light ring
+            else:
+                base = 108 + n // 2  # dark ring
+            px[x, y] = (clamp(base), clamp(base * 75 // 100), clamp(base * 40 // 100), 255)
+
+    # col 1 — side: vertical bark stripes with knot
+    for y in range(T):
+        for x in range(T):
+            n  = noise(x, y, 50, 10)
+            ns = noise(x, y * 3, 51, 6)
+            stripe = (x + ns // 8) % 4
+            base = 118 if stripe < 2 else 96
+            base += n // 2
+            px[T + x, y] = (clamp(base), clamp(base * 74 // 100), clamp(base * 39 // 100), 255)
+    # knot on bark side
+    kx, ky = T + 10, 5
+    for dx in range(-1, 2):
+        for dy in range(-1, 2):
+            if abs(dx) + abs(dy) <= 2:
+                img.putpixel((kx + dx, ky + dy), (72, 48, 22, 255))
+    img.putpixel((kx, ky), (55, 36, 14, 255))
+
+    img.save(os.path.join(OUT, "wood.png"))
+    print("wood.png")
+
+# ── leaves.png  (16×16, cutout transparency) ──────────────────────────────────
+
+def make_leaves():
+    import math
+    img = new()
+    px = img.load()
+
+    # Cluster of leaf shapes — semi-random filled blobs with gaps
+    for y in range(T):
+        for x in range(T):
+            n  = noise(x, y, 60, 16)
+            ns = noise(x, y, 61, 6)
+            # Voronoi-ish: transparent where noise pushes below threshold
+            if ns < -2:
+                px[x, y] = (0, 0, 0, 0)
+                continue
+            # Green leaf colour with variation
+            r = clamp(48  + n)
+            g = clamp(120 + n * 2)
+            b = clamp(28  + n)
+            # Slightly darker at edges of each "leaf cluster"
+            edge = noise(x, y, 62, 4)
+            r = clamp(r + edge); g = clamp(g + edge); b = clamp(b + edge // 2)
+            px[x, y] = (r, g, b, 255)
+
+    # Ensure border pixels are mostly transparent for natural look
+    for i in range(T):
+        if noise(i, 0,    63, 4) < 0: img.putpixel((i, 0),    (0, 0, 0, 0))
+        if noise(i, T-1,  63, 4) < 0: img.putpixel((i, T-1),  (0, 0, 0, 0))
+        if noise(0, i,    63, 4) < 0: img.putpixel((0, i),    (0, 0, 0, 0))
+        if noise(T-1, i,  63, 4) < 0: img.putpixel((T-1, i),  (0, 0, 0, 0))
+
+    img.save(os.path.join(OUT, "leaves.png"))
+    print("leaves.png")
+
 # ── Tool palette ──────────────────────────────────────────────────────────────
 WD  = (162, 107, 47, 255)   # wood
 WDK = (110,  68, 22, 255)   # wood dark
@@ -270,6 +350,8 @@ if __name__ == "__main__":
     make_grass()
     make_dirt()
     make_stone()
+    make_wood()
+    make_leaves()
     make_pickaxe()
     make_shovel()
     make_axe()

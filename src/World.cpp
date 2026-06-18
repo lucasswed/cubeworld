@@ -20,7 +20,43 @@ Chunk *World::getOrCreate(int cx, int cz) {
     return it->second.get();
 }
 
-// Flat world: a few layers of stone, one of dirt, one of grass
+// Fast xorshift RNG seeded from chunk coordinates.
+static uint32_t chunkRng(int cx, int cz) {
+    uint32_t s = (uint32_t)(cx * 1619 + cz * 31337 + 9001);
+    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+    return s;
+}
+static uint32_t rngNext(uint32_t &s) {
+    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+    return s;
+}
+
+// Plant an oak-like tree with trunk at local (x, z), base at world y=baseY.
+// Uses only c.setBlock() so leaves clip silently at chunk boundaries.
+static void plantTree(Chunk &c, int x, int z, int baseY, int height) {
+    // Trunk
+    for (int i = 0; i < height; i++)
+        c.setBlock(x, baseY + i, z, BlockType::Wood);
+
+    int topY = baseY + height - 1;
+
+    // Top 2 layers: 3×3 minus corners
+    for (int dy = 0; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dz = -1; dz <= 1; dz++)
+                if (!(std::abs(dx) == 1 && std::abs(dz) == 1))
+                    if (c.getBlock(x+dx, topY+dy, z+dz) == BlockType::Air)
+                        c.setBlock(x+dx, topY+dy, z+dz, BlockType::Leaves);
+
+    // Lower 2 layers: 5×5 minus far diagonal corners
+    for (int dy = -2; dy <= -1; dy++)
+        for (int dx = -2; dx <= 2; dx++)
+            for (int dz = -2; dz <= 2; dz++)
+                if (std::abs(dx) + std::abs(dz) <= 3)
+                    if (c.getBlock(x+dx, topY+dy, z+dz) == BlockType::Air)
+                        c.setBlock(x+dx, topY+dy, z+dz, BlockType::Leaves);
+}
+
 void World::generateChunk(Chunk &c) {
     for (int x = 0; x < CHUNK_W; x++)
     for (int z = 0; z < CHUNK_D; z++) {
@@ -30,6 +66,18 @@ void World::generateChunk(Chunk &c) {
         c.setBlock(x, 62, z, BlockType::Dirt);
         c.setBlock(x, 63, z, BlockType::Grass);
     }
+
+    // Random trees — 0 to 3 per chunk, seeded by chunk position
+    uint32_t rng = chunkRng(c.chunkX, c.chunkZ);
+    int numTrees = rngNext(rng) % 4;  // 0–3
+    for (int t = 0; t < numTrees; t++) {
+        // Keep trunk at least 2 blocks from chunk edge so leaves fit inside
+        int tx = 2 + (int)(rngNext(rng) % (CHUNK_W - 4));
+        int tz = 2 + (int)(rngNext(rng) % (CHUNK_D - 4));
+        int th = 4 + (int)(rngNext(rng) % 3);  // height 4–6
+        plantTree(c, tx, tz, 64, th);
+    }
+
     c.needsRebuild = true;
 }
 

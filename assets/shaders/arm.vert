@@ -4,7 +4,7 @@
 uniform mat4 uMVP;
 uniform vec3 uBoxMin;
 uniform vec3 uBoxMax;
-// Texture tile columns in the 8-tile atlas (top face, side faces, bottom face).
+// Texture tile columns in the 11-tile atlas (top face, side faces, bottom face).
 // Ignored when uUseTexture == 0.
 uniform int  uTileTop;
 uniform int  uTileSide;
@@ -49,8 +49,8 @@ void main(){
     gl_Position = uMVP * vec4(pos, 1.0);
     vNorm = kNorm[face];
 
-    // Atlas UV: 8 tiles wide total.  face 2=+Y(top), face 3=-Y(bot), rest=side.
+    // Atlas UV: 11 tiles wide total.  face 2=+Y(top), face 3=-Y(bot), rest=side.
     int tileCol = (face == 2) ? uTileTop : (face == 3) ? uTileBot : uTileSide;
     vec2 qUV = kQUV[ci];
-    vUV = vec2((float(tileCol) + qUV.x) / 8.0, qUV.y);
+    vUV = vec2((float(tileCol) + qUV.x) / 11.0, qUV.y);
 }

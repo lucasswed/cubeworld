@@ -2,8 +2,8 @@
 #include "World.h"
 #include <cstring>
 
-// Atlas: 8 tiles × 1 tile (128 × 16 px). Each tile occupies 0.125 of U.
-static constexpr float TILE_W = 1.0f / 8.0f;
+// Atlas: 11 tiles × 1 tile. Each tile occupies 1/11 of U.
+static constexpr float TILE_W = 1.0f / 11.0f;
 
 // Per-face: normal direction and light value (simple directional occlusion)
 struct FaceInfo {

@@ -27,30 +27,34 @@ struct DroppedItem {
 // ── Held-item type (blocks + tools) ──────────────────────────────────────────
 enum class ItemType : int {
     None = -1,
-    Grass = 0, Dirt, Stone,        // placeable blocks
-    Pickaxe, Shovel, Axe, Sword,   // tools
+    Grass = 0, Dirt, Stone, Wood, Leaves,  // placeable blocks
+    Pickaxe, Shovel, Axe, Sword,           // tools
     COUNT
 };
-static constexpr int kNumItemTypes = (int)ItemType::COUNT; // 7
+static constexpr int kNumItemTypes = (int)ItemType::COUNT; // 9
 static constexpr int kHotbarN      = 8;   // hotbar slot count
 static constexpr int kInvTotal     = 64;  // total inventory slots
 
 static BlockType itemToBlock(ItemType it) {
     switch (it) {
-        case ItemType::Grass: return BlockType::Grass;
-        case ItemType::Dirt:  return BlockType::Dirt;
-        case ItemType::Stone: return BlockType::Stone;
-        default:              return BlockType::Air;
+        case ItemType::Grass:  return BlockType::Grass;
+        case ItemType::Dirt:   return BlockType::Dirt;
+        case ItemType::Stone:  return BlockType::Stone;
+        case ItemType::Wood:   return BlockType::Wood;
+        case ItemType::Leaves: return BlockType::Leaves;
+        default:               return BlockType::Air;
     }
 }
 
 // Seconds to break each block with bare hand
 static float blockResistance(BlockType bt) {
     switch (bt) {
-        case BlockType::Grass: return 1.5f;
-        case BlockType::Dirt:  return 2.0f;
-        case BlockType::Stone: return 4.0f;
-        default:               return 0.f;
+        case BlockType::Grass:  return 1.5f;
+        case BlockType::Dirt:   return 2.0f;
+        case BlockType::Stone:  return 4.0f;
+        case BlockType::Wood:   return 3.0f;
+        case BlockType::Leaves: return 0.6f;
+        default:                return 0.f;
     }
 }
 
@@ -60,6 +64,10 @@ static float toolSpeed(ItemType item, BlockType block) {
         return 4.f;
     if (item == ItemType::Pickaxe && block == BlockType::Stone)
         return 4.f;
+    if (item == ItemType::Axe    && block == BlockType::Wood)
+        return 4.f;
+    if (item == ItemType::Sword  && block == BlockType::Leaves)
+        return 4.f;
     return 1.f;
 }
 
@@ -68,10 +76,12 @@ struct InvSlot { ItemType item = ItemType::None; int count = 0; };
 
 static ItemType blockToItem(BlockType bt) {
     switch (bt) {
-        case BlockType::Grass: return ItemType::Grass;
-        case BlockType::Dirt:  return ItemType::Dirt;
-        case BlockType::Stone: return ItemType::Stone;
-        default:               return ItemType::None;
+        case BlockType::Grass:  return ItemType::Grass;
+        case BlockType::Dirt:   return ItemType::Dirt;
+        case BlockType::Stone:  return ItemType::Stone;
+        case BlockType::Wood:   return ItemType::Wood;
+        case BlockType::Leaves: return ItemType::Leaves;
+        default:                return ItemType::None;
     }
 }
 
@@ -347,22 +357,27 @@ static GLuint buildTextureAtlas(FILE *logFile = nullptr) {
         if (logFile) { fputs(m, logFile); fputc('\n', logFile); fflush(logFile); }
     };
 
-    constexpr int NCOLS = 8;
+    constexpr int NCOLS = 11;
 
     // Each entry maps an image file to atlas slots, one slot per face column.
     // Image width / image height = number of face columns in that image.
     // If image has fewer columns than numSlots, the last column repeats.
+    // Atlas layout: 0=grass_top 1=grass_side 2=dirt 3=stone
+    //               4=wood_top  5=wood_side  6=leaves
+    //               7=pickaxe   8=shovel     9=axe   10=sword
     struct BlockEntry { const char *file; int slots[3]; int numSlots; };
     static const BlockEntry kBlocks[] = {
         {"grass",   {0, 1, 2}, 3}, // col0=top(0), col1=side(1), col2=bottom(2)
         {"dirt",    {2},        1},
         {"stone",   {3},        1},
-        {"pickaxe", {4},        1},
-        {"shovel",  {5},        1},
-        {"axe",     {6},        1},
-        {"sword",   {7},        1},
+        {"wood",    {4, 5},     2}, // col0=top rings(4), col1=side bark(5)
+        {"leaves",  {6},        1},
+        {"pickaxe", {7},        1},
+        {"shovel",  {8},        1},
+        {"axe",     {9},        1},
+        {"sword",   {10},       1},
     };
-    static constexpr int kNumBlocks = 7;
+    static constexpr int kNumBlocks = 9;
     static const char *kExts[] = {".png", ".jpg", ".jpeg", ".bmp", nullptr};
 
     stbi_set_flip_vertically_on_load(1);
@@ -484,26 +499,54 @@ static GLuint buildTextureAtlas(FILE *logFile = nullptr) {
             spx(11,8,dk);spx(13,5,dk);
             P4 ch={115,115,115,255}; spx(1,14,ch); spx(14,1,ch);
         });
+        // wood_top (4): concentric rings pattern
+        gen(4, [&]{
+            for(int y=0;y<B;y++) for(int x=0;x<B;x++) {
+                int n=Nh(x,y,40);
+                float cx=x-7.5f, cy=y-7.5f;
+                float r=std::sqrt(cx*cx+cy*cy);
+                int ring=(int)r & 1;
+                int base = ring ? 130+n/2 : 108+n/2;
+                spx(x,y,{c8(base),c8(base*75/100),c8(base*40/100),255});
+            }
+        });
+        // wood_side (5): vertical bark stripes
+        gen(5, [&]{
+            for(int y=0;y<B;y++) for(int x=0;x<B;x++) {
+                int n=Nh(x,y,50); int ns=Nh(x,y*3,51);
+                int stripe=(x+ns/8)%4;
+                int base=(stripe<2)?118:98; base+=n/2;
+                spx(x,y,{c8(base),c8(base*74/100),c8(base*39/100),255});
+            }
+        });
+        // leaves (6): irregular cutout green
+        gen(6, [&]{
+            for(int y=0;y<B;y++) for(int x=0;x<B;x++) {
+                int n=Nh(x,y,60), ns=Nh(x,y,61);
+                if(ns < -8){spx(x,y,{0,0,0,0});continue;}
+                spx(x,y,{c8(58+n),c8(108+n*2),c8(32+n),255});
+            }
+        });
         const P4 kW={139,90,43,255},kWd={101,62,22,255};
         const P4 kI={176,176,176,255},kId={120,120,120,255};
         const P4 kS={216,216,230,255},kSd={168,168,188,255};
-        gen(4, [&]{
+        gen(7, [&]{   // pickaxe
             rc(0,11,8,14,kI); rc(0,9,1,11,kI); rc(7,9,8,11,kI);
             ln(0,9,8,9,kId); ln(0,14,8,14,kId);
             ln(4,10,14,0,kW); ln(5,10,15,0,kWd);
         });
-        gen(5, [&]{
+        gen(8, [&]{   // shovel
             rc(5,11,10,15,kI); ln(5,11,10,11,kId); ln(5,11,5,15,kId); spx(10,15,kId);
             spx(7,10,kId); spx(8,10,kI);
             rc(7,1,7,9,kW); rc(8,1,8,9,kWd);
             rc(6,0,9,1,kId); spx(7,0,kW); spx(8,0,kW);
         });
-        gen(6, [&]{
+        gen(9, [&]{   // axe
             rc(0,10,7,15,kI); rc(1,9,5,14,kI);
             ln(0,9,7,9,kId); ln(0,9,0,15,kId); spx(7,15,kId);
             ln(6,9,14,1,kW); ln(7,9,15,1,kWd);
         });
-        gen(7, [&]{
+        gen(10, [&]{  // sword
             rc(7,8,8,15,kS); rc(6,9,7,15,kS); ln(8,8,8,15,kSd);
             spx(6,15,kSd); spx(7,15,P4{240,240,255,255});
             rc(4,7,10,8,kI); ln(4,7,10,7,kId);
@@ -1056,12 +1099,18 @@ int main() {
                     glm::rotate(glm::mat4(1.f), d.spin, glm::vec3(0.f,1.f,0.f));
                 armShader.setMat4("uMVP",
                     g_cam.projectionMatrix(aspect) * g_cam.viewMatrix() * dropMdl);
-                if (d.type == BlockType::Grass) {
-                    armShader.setInt("uTileTop", 0); armShader.setInt("uTileSide", 1); armShader.setInt("uTileBot", 2);
-                } else if (d.type == BlockType::Dirt) {
-                    armShader.setInt("uTileTop", 2); armShader.setInt("uTileSide", 2); armShader.setInt("uTileBot", 2);
-                } else {
-                    armShader.setInt("uTileTop", 3); armShader.setInt("uTileSide", 3); armShader.setInt("uTileBot", 3);
+                auto setTiles = [&](int top, int side, int bot) {
+                    armShader.setInt("uTileTop", top);
+                    armShader.setInt("uTileSide", side);
+                    armShader.setInt("uTileBot", bot);
+                };
+                switch (d.type) {
+                    case BlockType::Grass:  setTiles(0, 1, 2); break;
+                    case BlockType::Dirt:   setTiles(2, 2, 2); break;
+                    case BlockType::Stone:  setTiles(3, 3, 3); break;
+                    case BlockType::Wood:   setTiles(4, 5, 4); break;
+                    case BlockType::Leaves: setTiles(6, 6, 6); break;
+                    default:               setTiles(0, 0, 0); break;
                 }
                 glDrawArrays(GL_TRIANGLES, 0, 36);
             }
@@ -1129,16 +1178,19 @@ int main() {
                 int      heldCnt = g_inv[g_hotbarSel].count;
                 switch (held) {
                 case ItemType::Grass:
-                    if (heldCnt > 0)
-                        texBox({-0.12f,0.f,-0.12f},{0.12f,0.24f,0.12f}, 0, 1, 2);
+                    if (heldCnt > 0) texBox({-0.12f,0.f,-0.12f},{0.12f,0.24f,0.12f}, 0, 1, 2);
                     break;
                 case ItemType::Dirt:
-                    if (heldCnt > 0)
-                        texBox({-0.12f,0.f,-0.12f},{0.12f,0.24f,0.12f}, 2, 2, 2);
+                    if (heldCnt > 0) texBox({-0.12f,0.f,-0.12f},{0.12f,0.24f,0.12f}, 2, 2, 2);
                     break;
                 case ItemType::Stone:
-                    if (heldCnt > 0)
-                        texBox({-0.12f,0.f,-0.12f},{0.12f,0.24f,0.12f}, 3, 3, 3);
+                    if (heldCnt > 0) texBox({-0.12f,0.f,-0.12f},{0.12f,0.24f,0.12f}, 3, 3, 3);
+                    break;
+                case ItemType::Wood:
+                    if (heldCnt > 0) texBox({-0.12f,0.f,-0.12f},{0.12f,0.24f,0.12f}, 4, 5, 4);
+                    break;
+                case ItemType::Leaves:
+                    if (heldCnt > 0) texBox({-0.12f,0.f,-0.12f},{0.12f,0.24f,0.12f}, 6, 6, 6);
                     break;
                 case ItemType::Pickaxe:
                     box({-0.012f,-0.36f,-0.012f},{0.012f,0.16f,0.012f}, kWood);
@@ -1430,7 +1482,7 @@ int main() {
             auto drawTexIcon = [&](int tileCol, float sx, float sy, float pad=5.f) {
                 float ix0 = -1.f + (sx+pad)*PX, iy0 = -1.f + (sy+pad)*PY;
                 float ix1 = -1.f + (sx+SLOT-pad)*PX, iy1 = -1.f + (sy+SLOT-pad)*PY;
-                float u0 = float(tileCol)/8.f, u1 = u0 + 1.f/8.f;
+                float u0 = float(tileCol)/11.f, u1 = u0 + 1.f/11.f;
                 float verts[24] = {
                     ix0,iy0, u0,0.f,  ix1,iy0, u1,0.f,  ix1,iy1, u1,1.f,
                     ix0,iy0, u0,0.f,  ix1,iy1, u1,1.f,  ix0,iy1, u0,1.f,
@@ -1451,17 +1503,19 @@ int main() {
             auto drawItemIcon = [&](ItemType item, int cnt, float sx, float sy) {
                 if (item == ItemType::None) return;
                 switch (item) {
-                case ItemType::Grass:   drawTexIcon(0, sx, sy); break;
-                case ItemType::Dirt:    drawTexIcon(2, sx, sy); break;
-                case ItemType::Stone:   drawTexIcon(3, sx, sy); break;
-                case ItemType::Pickaxe: drawTexIcon(4, sx, sy, 4.f); break;
-                case ItemType::Shovel:  drawTexIcon(5, sx, sy, 4.f); break;
-                case ItemType::Axe:     drawTexIcon(6, sx, sy, 4.f); break;
-                case ItemType::Sword:   drawTexIcon(7, sx, sy, 4.f); break;
+                case ItemType::Grass:   drawTexIcon(0,  sx, sy); break;
+                case ItemType::Dirt:    drawTexIcon(2,  sx, sy); break;
+                case ItemType::Stone:   drawTexIcon(3,  sx, sy); break;
+                case ItemType::Wood:    drawTexIcon(5,  sx, sy); break;  // bark side looks best as icon
+                case ItemType::Leaves:  drawTexIcon(6,  sx, sy); break;
+                case ItemType::Pickaxe: drawTexIcon(7,  sx, sy, 4.f); break;
+                case ItemType::Shovel:  drawTexIcon(8,  sx, sy, 4.f); break;
+                case ItemType::Axe:     drawTexIcon(9,  sx, sy, 4.f); break;
+                case ItemType::Sword:   drawTexIcon(10, sx, sy, 4.f); break;
                 default: return;
                 }
                 // Stack count overlay (7-segment digits) for stackable block items
-                if (cnt > 0 && item >= ItemType::Grass && item <= ItemType::Stone) {
+                if (cnt > 0 && item >= ItemType::Grass && item <= ItemType::Leaves) {
                     const float CDW=5.f, CDH=9.f, CTH=0.7f, CTV=0.7f;
                     int d1=cnt/10, d2=cnt%10;
                     float nx=sx+SLOT-(d1>0?CDW*2+3.f:CDW+2.f)-2.f, ny=sy+3.f;
