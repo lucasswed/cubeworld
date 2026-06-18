@@ -15,6 +15,21 @@ inline bool blockIsSolid(BlockType t) {
     return t != BlockType::Air;
 }
 
+// Returns true only for fully opaque blocks that completely hide a neighbor's face.
+// Transparent/cutout blocks (Leaves, and future Glass/Water) return false so that
+// adjacent solid faces are included in the mesh and visible through the gaps.
+inline bool blockOccludesFace(BlockType t) {
+    switch (t) {
+        case BlockType::Grass:
+        case BlockType::Dirt:
+        case BlockType::Stone:
+        case BlockType::Wood:
+            return true;
+        default:  // Air, Leaves, and any future transparent block
+            return false;
+    }
+}
+
 // Texture atlas — 11 tiles wide. Atlas columns:
 //  0=grass_top 1=grass_side 2=dirt 3=stone 4=wood_top 5=wood_side 6=leaves
 //  7=pickaxe   8=shovel     9=axe  10=sword

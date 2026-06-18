@@ -1062,7 +1062,11 @@ int main() {
         shader.setMat4("uView",       g_cam.viewMatrix());
         shader.setMat4("uProjection", g_cam.projectionMatrix(aspect));
 
+        // Disable face culling so transparent blocks (leaves, future glass/water)
+        // render correctly from both sides without a separate two-pass setup.
+        glDisable(GL_CULL_FACE);
         world.draw();
+        glEnable(GL_CULL_FACE);
 
         // ── Block highlight ────────────────────────────────────────────────
         if (target.hit) {

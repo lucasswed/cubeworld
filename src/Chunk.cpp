@@ -109,7 +109,7 @@ void Chunk::buildMesh(const World &world) {
                                           chunkZ * CHUNK_D + nz);
             }
 
-            if (!blockIsSolid(neighbor)) {
+            if (!blockOccludesFace(neighbor)) {
                 addFace(verts, idx, x, y, z, f, texPerFace[f]);
             }
         }
