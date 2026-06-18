@@ -5,6 +5,8 @@
 #include <memory>
 #include <glm/glm.hpp>
 
+static constexpr int WORLD_SEA_LEVEL = 62;
+
 // Pack chunk coords into a single 64-bit key
 inline int64_t chunkKey(int cx, int cz) {
     return (static_cast<int64_t>(cx) << 32) | (static_cast<uint32_t>(cz));

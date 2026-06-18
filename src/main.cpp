@@ -799,10 +799,12 @@ int main() {
     GLuint atlas = buildTextureAtlas(g_log);
     LOG("Atlas OK");
 
-    // World — spawn camera above the terrain surface
+    // World — spawn camera above the terrain surface (above sea level if needed)
     World world;
     {
+        world.loadAround(0, 0, 0);                       // generate spawn chunk first
         int surf = world.surfaceAt(8, 8);
+        surf = std::max(surf, WORLD_SEA_LEVEL);          // never spawn underwater
         g_cam.position = {8.f, (float)surf + 2.7f, 8.f};
     }
 
@@ -970,7 +972,7 @@ int main() {
         // ── Health: respawn on death, slow regen while grounded ───────────────
         if (g_health <= 0) {
             g_health = 10;
-            int rsurf = world.surfaceAt(8, 8);
+            int rsurf = std::max(world.surfaceAt(8, 8), WORLD_SEA_LEVEL);
             g_cam.position = {8.f, (float)rsurf + 2.7f, 8.f};
             g_velY = 0.f;
         } else if (g_onGround && g_health < 10) {
@@ -982,6 +984,16 @@ int main() {
 
         // ── Block targeting (once per frame, used for interaction + highlight) ──
         RaycastResult target = world.raycast(g_cam.position, g_cam.front());
+
+        // Fills a freshly-broken air block with water if any 6-connected neighbor is water.
+        auto fillWater = [&](int bx, int by, int bz) {
+            if (world.getBlock(bx+1,by,bz)==BlockType::Water ||
+                world.getBlock(bx-1,by,bz)==BlockType::Water ||
+                world.getBlock(bx,by+1,bz)==BlockType::Water ||
+                world.getBlock(bx,by,bz+1)==BlockType::Water ||
+                world.getBlock(bx,by,bz-1)==BlockType::Water)
+                world.setBlock(bx, by, bz, BlockType::Water);
+        };
 
         // ── Mining progress (LMB hold) ────────────────────────────────────────
         if (g_lmbHeld && target.hit) {
@@ -995,12 +1007,14 @@ int main() {
             float spd = toolSpeed(g_inv[g_hotbarSel].item, g_mineBlockType);
             if (res <= 0.f) {
                 world.setBlock(g_mineTarget.x, g_mineTarget.y, g_mineTarget.z, BlockType::Air);
+                fillWater(g_mineTarget.x, g_mineTarget.y, g_mineTarget.z);
                 g_mineActive = false; g_mineProgress = 0.f;
             } else {
                 g_mineProgress += dt * spd / res;
                 if (g_mineProgress >= 1.f) {
                     BlockType mined = g_mineBlockType;
                     world.setBlock(g_mineTarget.x, g_mineTarget.y, g_mineTarget.z, BlockType::Air);
+                    fillWater(g_mineTarget.x, g_mineTarget.y, g_mineTarget.z);
                     g_drops.push_back({
                         glm::vec3(g_mineTarget) + glm::vec3(0.5f),
                         mined, 0.f, 0.f

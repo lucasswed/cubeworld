@@ -55,7 +55,7 @@ static float noise3(float x, float y, float z, int seed) {
 
 // ─── Terrain parameters ───────────────────────────────────────────────────────
 
-static constexpr int SEA_LEVEL = 62;
+static constexpr int SEA_LEVEL = WORLD_SEA_LEVEL;
 
 // World Y of the top solid block at (wx, wz). Range roughly [30, 115].
 static int terrainHeight(int wx, int wz) {
