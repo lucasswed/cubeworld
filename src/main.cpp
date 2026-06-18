@@ -790,9 +790,12 @@ int main() {
     GLuint atlas = buildTextureAtlas(g_log);
     LOG("Atlas OK");
 
-    // World — spawn camera above the surface
-    g_cam.position = {8.f, 68.f, 8.f};
+    // World — spawn camera above the terrain surface
     World world;
+    {
+        int surf = world.surfaceAt(8, 8);
+        g_cam.position = {8.f, (float)surf + 2.7f, 8.f};
+    }
 
     // Drain any pending window messages before entering the render loop.
     glfwPollEvents();
@@ -945,7 +948,8 @@ int main() {
         // ── Health: respawn on death, slow regen while grounded ───────────────
         if (g_health <= 0) {
             g_health = 10;
-            g_cam.position = {8.f, 68.f, 8.f};
+            int rsurf = world.surfaceAt(8, 8);
+            g_cam.position = {8.f, (float)rsurf + 2.7f, 8.f};
             g_velY = 0.f;
         } else if (g_onGround && g_health < 10) {
             g_regenTimer += dt;

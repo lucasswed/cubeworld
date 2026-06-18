@@ -34,6 +34,9 @@ public:
     // Load/unload chunks around a center chunk position
     void loadAround(int cx, int cz, int radius = 6);
 
+    // Y of the highest solid block at world column (wx, wz). Triggers chunk generation.
+    int surfaceAt(int wx, int wz);
+
 private:
     std::unordered_map<int64_t, std::unique_ptr<Chunk>> m_chunks;
 
