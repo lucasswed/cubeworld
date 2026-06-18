@@ -33,11 +33,23 @@ FetchContent_MakeAvailable(glm)
 add_library(glad STATIC vendor/glad/src/glad.c)
 target_include_directories(glad PUBLIC vendor/glad/include)
 
+# ── STB Image (header-only, single file) ─────────────────────────────────────
+FetchContent_Declare(
+  stb
+  GIT_REPOSITORY https://github.com/nothings/stb.git
+  GIT_TAG        master
+  GIT_SHALLOW    TRUE
+)
+FetchContent_GetProperties(stb)
+if(NOT stb_POPULATED)
+    FetchContent_Populate(stb)
+endif()
+
 # ── Game executable ───────────────────────────────────────────────────────────
 file(GLOB_RECURSE SOURCES src/*.cpp)
 add_executable(cubeworld ${SOURCES})
 
-target_include_directories(cubeworld PRIVATE src)
+target_include_directories(cubeworld PRIVATE src ${stb_SOURCE_DIR})
 target_link_libraries(cubeworld PRIVATE glad glfw glm::glm)
 
 if(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Windows")

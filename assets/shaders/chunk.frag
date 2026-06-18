@@ -12,10 +12,10 @@ void main() {
     if (color.a < 0.1)
         discard;
 
-    // Grid lines: atlas has 4 tiles wide; remap U into per-tile [0,1] space
-    float tileU = fract(vTexCoord.x * 4.0);
+    // Grid lines: atlas has 8 tiles wide; remap U into per-tile [0,1] space
+    float tileU = fract(vTexCoord.x * 8.0);
     float tileV = vTexCoord.y;
-    float lw    = 0.06;
+    float lw    = 0.05;
     float grid  = (tileU < lw || tileU > 1.0 - lw || tileV < lw || tileV > 1.0 - lw) ? 1.0 : 0.0;
 
     float light = vLight * mix(1.0, 0.35, grid);
