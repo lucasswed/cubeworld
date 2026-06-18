@@ -829,11 +829,29 @@ int main() {
             if (glfwGetKey(win, GLFW_KEY_S) == GLFW_PRESS) mv -= g_cam.front();
             if (glfwGetKey(win, GLFW_KEY_A) == GLFW_PRESS) mv -= g_cam.right();
             if (glfwGetKey(win, GLFW_KEY_D) == GLFW_PRESS) mv += g_cam.right();
-            if (glfwGetKey(win, GLFW_KEY_SPACE)        == GLFW_PRESS) mv.y += 1.f;
-            if (glfwGetKey(win, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) mv.y -= 1.f;
+            if (glfwGetKey(win, GLFW_KEY_SPACE)      == GLFW_PRESS) mv.y += 1.f;
+            if (glfwGetKey(win, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) mv.y -= 1.f;
             if (glm::length(mv) > 0.001f)
                 g_cam.position += glm::normalize(mv) * FREE_SPEED * dt;
         } else {
+
+        // ── Sprint / sneak ────────────────────────────────────────────────
+        bool sprinting = glfwGetKey(win, GLFW_KEY_LEFT_SHIFT)   == GLFW_PRESS;
+        bool sneaking  = glfwGetKey(win, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS;
+        float moveSpeed = g_cam.speed
+                        * (sprinting ? 1.6f : sneaking ? 0.3f : 1.0f);
+
+        // Returns true if at least one block column under pos is solid at foot level.
+        auto hasSolidGround = [&](glm::vec3 pos) -> bool {
+            int gy = (int)std::floor(pos.y - 1.7f);
+            constexpr float GHW = 0.29f;
+            int gx0 = (int)std::floor(pos.x - GHW), gx1 = (int)std::floor(pos.x + GHW);
+            int gz0 = (int)std::floor(pos.z - GHW), gz1 = (int)std::floor(pos.z + GHW);
+            for (int gx = gx0; gx <= gx1; gx++)
+            for (int gz = gz0; gz <= gz1; gz++)
+                if (blockIsSolid(world.getBlock(gx, gy, gz))) return true;
+            return false;
+        };
 
         // ── Horizontal movement with AABB collision ────────────────────────
         glm::vec3 move{0.f};
@@ -843,14 +861,15 @@ int main() {
         if (glfwGetKey(win, GLFW_KEY_D) == GLFW_PRESS) move += g_cam.right();
 
         if (glm::length(move) > 0.001f) {
-            glm::vec3 delta = glm::normalize(move) * g_cam.speed * dt;
+            glm::vec3 delta = glm::normalize(move) * moveSpeed * dt;
 
-            // Try X — hard block on collision, no auto step-up
+            // Try X — also reject if sneaking would walk off an edge
             {
                 glm::vec3 tryPos = g_cam.position;
                 tryPos.x += delta.x;
                 if (!overlapsBlock(world, tryPos))
-                    g_cam.position.x = tryPos.x;
+                    if (!sneaking || !g_onGround || hasSolidGround(tryPos))
+                        g_cam.position.x = tryPos.x;
             }
 
             // Try Z
@@ -858,7 +877,8 @@ int main() {
                 glm::vec3 tryPos = g_cam.position;
                 tryPos.z += delta.z;
                 if (!overlapsBlock(world, tryPos))
-                    g_cam.position.z = tryPos.z;
+                    if (!sneaking || !g_onGround || hasSolidGround(tryPos))
+                        g_cam.position.z = tryPos.z;
             }
         }
 
@@ -917,10 +937,6 @@ int main() {
         // ── Jump ──────────────────────────────────────────────────────────
         if (glfwGetKey(win, GLFW_KEY_SPACE) == GLFW_PRESS && g_onGround)
             g_velY = JUMP_VEL;
-
-        // Fly down (shift) — for debugging/building
-        if (glfwGetKey(win, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-            g_cam.position.y -= g_cam.speed * dt;
 
         } // end !g_freeCam physics block
 
